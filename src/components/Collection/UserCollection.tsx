@@ -86,9 +86,14 @@ const FilterSelect = styled.select`
 
 const CollectionGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: ${theme.spacing[4]};
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+  gap: ${theme.spacing[2]};
   margin-top: ${theme.spacing[4]};
+  max-height: 80vh;
+  overflow-y: auto;
+  width: 100%;
+  padding: 0 10vw;
 `
 
 const CollectionItemCard = styled(Card)`
@@ -279,7 +284,7 @@ export const UserCollection: React.FC = () => {
 
   return (
     <CollectionContainer>
-      <CollectionHeader>
+      {/* <CollectionHeader>
         <div>
           <Heading size="xl">📦 La Mia Collezione</Heading>
           <Text style={{ marginTop: theme.spacing[1], color: theme.colors.gray500 }}>
@@ -290,7 +295,7 @@ export const UserCollection: React.FC = () => {
           <Package size={16} />
           Aggiorna
         </Button>
-      </CollectionHeader>
+      </CollectionHeader> */}
 
       {/* Statistiche */}
       {/* <CollectionStats>
@@ -366,12 +371,12 @@ export const UserCollection: React.FC = () => {
                   }
                   alt=""
                 /> */}
-                <Heading size="md" style={{ marginBottom: theme.spacing[2] }}>
+                {/* <Heading size="md" style={{ marginBottom: theme.spacing[2] }}>
                   {item.pokemon_cards?.name}
-                </Heading>
+                </Heading> */}
               </div>
               <img src={item.pokemon_cards?.images.large} alt="" />
-              <ItemDetails>
+              {/* <ItemDetails>
                 <Text style={{ color: theme.colors.gray600, marginBottom: theme.spacing[2] }}>
                   {item.pokemon_cards?.set_id} • #{item.pokemon_cards?.number}
                 </Text>
@@ -426,8 +431,8 @@ export const UserCollection: React.FC = () => {
                     <span>€{item.purchase_price}</span>
                   </DetailRow>
                 )}
-              </ItemDetails>
-              <ItemActions>
+              </ItemDetails> */}
+              {/* <ItemActions>
                 <div
                   style={{ display: 'flex', gap: theme.spacing[2], marginBottom: theme.spacing[2] }}
                 >
@@ -478,7 +483,7 @@ export const UserCollection: React.FC = () => {
                     Rimuovi
                   </Button>
                 </div>
-              </ItemActions>
+              </ItemActions> */}
             </CollectionItemCard>
           ))}
         </CollectionGrid>

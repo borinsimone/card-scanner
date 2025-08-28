@@ -12,6 +12,7 @@ import { theme } from '../styles/theme'
 import { PokemonTCGCard } from '../services/card-search'
 import { collectionService } from '../services/collection'
 import CardForm from '@/components/FormTgc/CardForm'
+import Sidebar from '@/components/Sidebar/Sidebar'
 
 const AppContainer = styled.div`
   min-height: 100vh;
@@ -20,7 +21,13 @@ const AppContainer = styled.div`
     ${theme.colors.backgroundDark} 0%,
     ${theme.colors.background} 100%
   );
-  padding: ${theme.spacing[4]} 0;
+  display: flex;
+`
+
+const MainContent = styled.div`
+  flex: 1;
+  padding: ${theme.spacing[4]};
+  overflow-y: auto;
 `
 
 const LoadingContainer = styled.div`
@@ -29,35 +36,6 @@ const LoadingContainer = styled.div`
   align-items: center;
   min-height: 100vh;
   background: ${theme.colors.background};
-`
-
-const UserHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: ${theme.spacing[4]};
-  background: ${theme.colors.white};
-  border-radius: ${theme.borderRadius.lg};
-  margin-bottom: ${theme.spacing[6]};
-  box-shadow: ${theme.shadows.sm};
-`
-
-const UserInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${theme.spacing[3]};
-`
-
-const Avatar = styled.div`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.pokemonBlue});
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
 `
 
 const Header = styled.div`
@@ -119,44 +97,6 @@ const CardOption = styled.div`
     border-color: ${theme.colors.primary};
     box-shadow: ${theme.shadows.md};
   }
-`
-
-const TabNavigation = styled.div`
-  display: flex;
-  background: ${theme.colors.white};
-  border-radius: ${theme.borderRadius.lg};
-  margin-bottom: ${theme.spacing[6]};
-  box-shadow: ${theme.shadows.sm};
-  overflow: hidden;
-`
-
-const TabButton = styled.button<{ $active: boolean }>`
-  flex: 1;
-  padding: ${theme.spacing[4]};
-  border: none;
-  background: ${props => (props.$active ? theme.colors.primary : 'transparent')};
-  color: ${props => (props.$active ? 'white' : theme.colors.gray600)};
-  font-weight: ${props => (props.$active ? 'bold' : 'normal')};
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: ${theme.spacing[2]};
-  font-size: 1rem;
-
-  &:hover {
-    background: ${props => (props.$active ? theme.colors.primaryDark : theme.colors.gray50)};
-  }
-
-  @media (max-width: 768px) {
-    padding: ${theme.spacing[3]};
-    font-size: 0.9rem;
-  }
-`
-
-const TabContent = styled.div`
-  min-height: 60vh;
 `
 
 export default function Home() {
@@ -265,154 +205,98 @@ export default function Home() {
     setSuccessMessage(`Carta selezionata: ${card.name}`)
   }
 
-  const handleSearchResults = (cards: PokemonTCGCard[]) => {
-    if (cards.length === 1) {
-      // Se c'è solo una carta, la selezioniamo automaticamente
-      setScannedCard(cards[0])
-      setSuccessMessage(`Carta trovata: ${cards[0].name}`)
-      setShowCardSelection(false)
-      setSearchResults([])
-    } else if (cards.length > 1) {
-      // Se ci sono più carte, mostriamo la selezione
-      setSearchResults(cards)
-      setShowCardSelection(true)
-      setScannedCard(null)
-      setSuccessMessage(`${cards.length} carte trovate. Seleziona quella desiderata.`)
-    }
-    setError('')
-  }
-
   return (
     <AppContainer>
-      <Container>
-        <UserHeader>
-          <UserInfo>
-            <Avatar>
-              <User size={20} />
-            </Avatar>
-            <div>
-              <Text weight="bold">{user.displayName || user.email}</Text>
-              <Text size="sm" style={{ opacity: 0.7 }}>
-                Benvenuto nel Card Scanner!
-              </Text>
-            </div>
-          </UserInfo>
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} logout={logout} />
 
-          <Button onClick={logout} variant="outline">
-            <LogOut size={16} />
-            Logout
-          </Button>
-        </UserHeader>
-
-        <TabNavigation>
-          <TabButton $active={activeTab === 'search'} onClick={() => setActiveTab('search')}>
-            <Search size={20} />
-            Cerca Carte
-          </TabButton>
-          <TabButton
-            $active={activeTab === 'collection'}
-            onClick={() => setActiveTab('collection')}
-          >
-            <Package size={20} />
-            Collezione
-          </TabButton>
-          <TabButton $active={activeTab === 'albums'} onClick={() => setActiveTab('albums')}>
-            <FolderOpen size={20} />
-            Album
-          </TabButton>
-        </TabNavigation>
-
+      <MainContent>
         {error && <ErrorMessage>{error}</ErrorMessage>}
         {successMessage && <SuccessMessage>{successMessage}</SuccessMessage>}
 
-        <TabContent>
-          {activeTab === 'search' ? (
-            <>
-              <Header>
-                <Container>
-                  <Heading size="2xl" style={{ marginBottom: theme.spacing[3] }}>
-                    🔍 Cerca le tue carte Pokemon
-                  </Heading>
-                  <Text size="lg" style={{ opacity: 0.9 }}>
-                    Trova carte Pokemon e gestisci la tua collezione
-                  </Text>
-                </Container>
-              </Header>
-              {/* Form di ricerca */}
-              <CardForm />
-              {'>>'}aggiunta multipla <br />
-              {'>>'}ricerca avanzata
-              {/* Selezione carte multiple */}
-              {showCardSelection && searchResults.length > 0 && (
-                <CardSelectionContainer>
-                  <Heading size="lg" style={{ marginBottom: theme.spacing[4] }}>
-                    🎯 Seleziona la carta desiderata ({searchResults.length} risultati)
-                  </Heading>
+        {activeTab === 'search' ? (
+          <>
+            <Header>
+              <Heading size="2xl" style={{ marginBottom: theme.spacing[3] }}>
+                🔍 Cerca le tue carte Pokemon
+              </Heading>
+              <Text size="lg" style={{ opacity: 0.9 }}>
+                Trova carte Pokemon e gestisci la tua collezione
+              </Text>
+            </Header>
 
-                  <CardGrid>
-                    {searchResults.map((card, index) => (
-                      <CardOption
-                        key={`${card.id}-${index}`}
-                        onClick={() => handleCardSelection(card)}
+            <CardForm />
+
+            {/* Selezione carte multiple */}
+            {showCardSelection && searchResults.length > 0 && (
+              <CardSelectionContainer>
+                <Heading size="lg" style={{ marginBottom: theme.spacing[4] }}>
+                  🎯 Seleziona la carta desiderata ({searchResults.length} risultati)
+                </Heading>
+
+                <CardGrid>
+                  {searchResults.map((card, index) => (
+                    <CardOption
+                      key={`${card.id}-${index}`}
+                      onClick={() => handleCardSelection(card)}
+                    >
+                      <Button
+                        style={{
+                          width: '100%',
+                          marginTop: theme.spacing[2],
+                          backgroundColor: theme.colors.primary,
+                        }}
                       >
-                        <Button
-                          style={{
-                            width: '100%',
-                            marginTop: theme.spacing[2],
-                            backgroundColor: theme.colors.primary,
-                          }}
-                        >
-                          Seleziona questa carta
-                        </Button>
-                      </CardOption>
-                    ))}
-                  </CardGrid>
-                </CardSelectionContainer>
-              )}
-              {scannedCard && (
-                <Card>
-                  <Heading size="lg" style={{ marginBottom: theme.spacing[4] }}>
-                    🎯 Carta trovata
-                  </Heading>
+                        Seleziona questa carta
+                      </Button>
+                    </CardOption>
+                  ))}
+                </CardGrid>
+              </CardSelectionContainer>
+            )}
 
-                  <ActionButtons>
-                    <Button
-                      onClick={handleAddToCollection}
-                      disabled={isLoading}
-                      style={{ backgroundColor: theme.colors.success }}
-                    >
-                      <Plus size={16} />
-                      Aggiungi alla Collezione
-                    </Button>
+            {scannedCard && (
+              <Card>
+                <Heading size="lg" style={{ marginBottom: theme.spacing[4] }}>
+                  🎯 Carta trovata
+                </Heading>
 
-                    <Button
-                      onClick={handleAddToWishlist}
-                      disabled={isLoading}
-                      style={{ backgroundColor: theme.colors.primary }}
-                    >
-                      <Heart size={16} />
-                      Aggiungi alla Wishlist
-                    </Button>
+                <ActionButtons>
+                  <Button
+                    onClick={handleAddToCollection}
+                    disabled={isLoading}
+                    style={{ backgroundColor: theme.colors.success }}
+                  >
+                    <Plus size={16} />
+                    Aggiungi alla Collezione
+                  </Button>
 
-                    <Button
-                      onClick={handleAddToWatchlist}
-                      disabled={isLoading}
-                      style={{ backgroundColor: theme.colors.warning }}
-                    >
-                      <Eye size={16} />
-                      Aggiungi alla Watchlist
-                    </Button>
-                  </ActionButtons>
-                </Card>
-              )}
-            </>
-          ) : activeTab === 'collection' ? (
-            <UserCollection />
-          ) : (
-            <AlbumManager />
-          )}
-        </TabContent>
-      </Container>
+                  <Button
+                    onClick={handleAddToWishlist}
+                    disabled={isLoading}
+                    style={{ backgroundColor: theme.colors.primary }}
+                  >
+                    <Heart size={16} />
+                    Aggiungi alla Wishlist
+                  </Button>
+
+                  <Button
+                    onClick={handleAddToWatchlist}
+                    disabled={isLoading}
+                    style={{ backgroundColor: theme.colors.warning }}
+                  >
+                    <Eye size={16} />
+                    Aggiungi alla Watchlist
+                  </Button>
+                </ActionButtons>
+              </Card>
+            )}
+          </>
+        ) : activeTab === 'collection' ? (
+          <UserCollection />
+        ) : (
+          <AlbumManager />
+        )}
+      </MainContent>
     </AppContainer>
   )
 }
