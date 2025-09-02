@@ -1,180 +1,382 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import styled from 'styled-components'
-import { Package, Search, Filter, Trash2, Edit3, FolderPlus, Folder } from 'lucide-react'
-import { Heading, Text, Card, Button } from '../ui'
+import styled, { keyframes } from 'styled-components'
+import { Package, Grid3X3, Book } from 'lucide-react'
 
-import { collectionService, CollectionItem, Album } from '../../services/collection'
+import { collectionService, CollectionItem } from '../../services/collection'
+import CardDetails from './CardDetails'
+import SetView from './SetView'
+import { cardSearchService, PokemonTCGCard } from '../../services/card-search'
 import { theme } from '../../styles/theme'
-import { log } from 'console'
-import setsData from '../../pokemon-sets.json'
+import GradualBlur from '../react-bits-components/GradualBlur'
+import ScrollReveal from '../react-bits-components/ScrollReveal'
+import CardOverlay from './CardOverlay'
+import SpotlightCard from '../react-bits-components/SpotlightCard'
+// Animations
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`
+
+const cardHover = keyframes`
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  100% {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  }
+`
+
+const spin = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+`
+
+const imageSlideIn = keyframes`
+  from {
+    opacity: 0;
+    transform:  translateY(100px);
+  }
+  to {
+    opacity: 1;
+    transform:  translateY(0);
+  }
+`
+
+// Main Container
+const AppContainer = styled.div`
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
+
 const CollectionContainer = styled.div`
-  padding: ${theme.spacing[4]} 0;
-`
-
-const CollectionHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: ${theme.spacing[6]};
-  flex-wrap: wrap;
-  gap: ${theme.spacing[3]};
-`
-
-const CollectionStats = styled.div`
-  display: flex;
-  gap: ${theme.spacing[4]};
-  margin-bottom: ${theme.spacing[6]};
-  flex-wrap: wrap;
-`
-
-const StatCard = styled(Card)`
-  flex: 1;
-  min-width: 200px;
-  text-align: center;
-  background: linear-gradient(135deg, ${theme.colors.primary}10, ${theme.colors.pokemonBlue}10);
-`
-
-const StatNumber = styled.div`
-  font-size: 2rem;
-  font-weight: bold;
-  color: ${theme.colors.primary};
-  margin-bottom: ${theme.spacing[1]};
-`
-
-const StatLabel = styled.div`
-  color: ${theme.colors.gray500};
-  font-size: 0.9rem;
-`
-
-const FilterBar = styled.div`
-  display: flex;
-  gap: ${theme.spacing[3]};
-  margin-bottom: ${theme.spacing[6]};
-  align-items: center;
-  flex-wrap: wrap;
-`
-
-const SearchInput = styled.input`
-  flex: 1;
-  min-width: 250px;
-  padding: ${theme.spacing[2]} ${theme.spacing[3]};
-  border: 1px solid ${theme.colors.gray200};
-  border-radius: ${theme.borderRadius.md};
-  font-size: 1rem;
-
-  &:focus {
-    outline: none;
-    border-color: ${theme.colors.primary};
-    box-shadow: 0 0 0 3px ${theme.colors.primary}20;
-  }
-`
-
-const FilterSelect = styled.select`
-  padding: ${theme.spacing[2]} ${theme.spacing[3]};
-  border: 1px solid ${theme.colors.gray200};
-  border-radius: ${theme.borderRadius.md};
-  background: white;
-  cursor: pointer;
-
-  &:focus {
-    outline: none;
-    border-color: ${theme.colors.primary};
-  }
-`
-
-const CollectionGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(9, 1fr);
-  gap: ${theme.spacing[2]};
-  margin-top: ${theme.spacing[4]};
-  max-height: 80vh;
-  overflow-y: auto;
   width: 100%;
-  padding: 0 10vw;
+  max-width: 1400px;
+  height: 90vh;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: ${fadeIn} 0.6s ease-out;
 `
 
-const CollectionItemCard = styled(Card)`
+// Header Section
+const Header = styled.div`
+  background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+  padding: 2rem;
+  color: white;
   position: relative;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")
+      repeat;
+    opacity: 0.3;
+  }
+`
+
+const HeaderContent = styled.div`
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+`
+
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`
+
+const HeaderIcon = styled.div`
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+`
+
+const HeaderText = styled.div``
+
+const Title = styled.h1`
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+`
+
+const Subtitle = styled.p`
+  margin: 0;
+  opacity: 0.8;
+  font-size: 1rem;
+`
+
+// View Controls
+const ViewControls = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+`
+
+const ViewButton = styled.button<{ $active: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  background: ${props =>
+    props.$active ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'transparent'};
+  color: ${props => (props.$active ? 'white' : 'rgba(255, 255, 255, 0.8)')};
+  box-shadow: ${props => (props.$active ? '0 4px 12px rgba(102, 126, 234, 0.4)' : 'none')};
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${theme.shadows.lg};
+    background: ${props =>
+      props.$active
+        ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+        : 'rgba(255, 255, 255, 0.1)'};
+    transform: translateY(-1px);
   }
 `
-const ItemImage = styled.img`
-  width: 100%;
-  height: auto;
-  border-radius: ${theme.borderRadius.sm};
-  /* position: absolute;
-  z-index: -1;
+
+// Content Area
+const ContentArea = styled.div`
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+`
+
+// Grid View
+const CollectionGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-auto-rows: min-content;
+  gap: 3rem;
+  padding: 2rem;
+  height: 100%;
+  overflow-y: auto;
+
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  }
+`
+
+const CollectionItemCard = styled.div`
+  /* overflow: hidden; */
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  position: relative;
+  width: fit-content;
+  height: fit-content;
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+  }
+
+  &:hover::before {
+    opacity: 1;
+  }
+`
+
+const CardImageContainer = styled.div`
+  height: 100%;
+  position: relative;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+`
+
+const ImageLoadingContainer = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   bottom: 0;
-  left: 0; */
-`
-const ItemActions = styled.div`
   display: flex;
-  gap: ${theme.spacing[2]};
-  margin-top: ${theme.spacing[3]};
-  padding-top: ${theme.spacing[3]};
-  border-top: 1px solid ${theme.colors.gray200};
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  z-index: 1;
 `
 
-const ItemDetails = styled.div`
-  margin-top: ${theme.spacing[3]};
-  padding: ${theme.spacing[2]};
-  background: ${theme.colors.gray50};
-  border-radius: ${theme.borderRadius.sm};
+const ImageLoadingSpinner = styled.div`
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(102, 126, 234, 0.2);
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: ${spin} 1s linear infinite;
 `
 
-const DetailRow = styled.div`
+const CardImage = styled.img<{ $loaded: boolean }>`
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+  opacity: ${props => (props.$loaded ? 1 : 0)};
+  transform: ${props => (props.$loaded ? 'scale(1) translateY(0)' : 'scale(0.8) translateY(20px)')};
+  animation: ${props => (props.$loaded ? imageSlideIn : 'none')} 0.6s ease-out;
+  transition-delay: 1000ms;
+  z-index: 2;
+  position: relative;
+`
+
+const CardInfo = styled.div`
+  padding: 1rem;
+  position: relative;
+  z-index: 2;
+  background: white;
+`
+
+const CardName = styled.h3`
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`
+
+const CardMeta = styled.div`
   display: flex;
   justify-content: space-between;
-  margin-bottom: ${theme.spacing[1]};
-  font-size: 0.9rem;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #6b7280;
 `
 
-const EmptyState = styled.div`
+const CardSet = styled.span`
+  background: #f3f4f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+`
+
+const CardQuantity = styled.span`
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+`
+
+// States
+const StateContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
   text-align: center;
-  padding: ${theme.spacing[8]};
-  color: ${theme.colors.gray500};
+  padding: 3rem;
 `
 
-const LoadingState = styled.div`
-  text-align: center;
-  padding: ${theme.spacing[8]};
+const StateIcon = styled.div<{ $loading?: boolean }>`
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+  animation: ${props => (props.$loading ? spin : 'none')} 1s linear infinite;
 `
 
-const AlbumSelector = styled.select`
-  padding: ${theme.spacing[1]} ${theme.spacing[2]};
-  border: 1px solid ${theme.colors.gray200};
-  border-radius: ${theme.borderRadius.sm};
-  background: white;
-  font-size: 0.8rem;
-  cursor: pointer;
-  flex: 1;
+const StateTitle = styled.h2`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+`
 
-  &:focus {
-    outline: none;
-    border-color: ${theme.colors.primary};
-  }
+const StateSubtitle = styled.p`
+  color: #6b7280;
+  margin: 0;
+  font-size: 1rem;
+  max-width: 400px;
+`
+
+const LoadingSpinner = styled.div`
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: ${spin} 1s linear infinite;
 `
 
 export const UserCollection: React.FC = () => {
   const [collection, setCollection] = useState<CollectionItem[]>([])
-  const [albums, setAlbums] = useState<Album[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterBy, setFilterBy] = useState('all')
-  const [sortBy, setSortBy] = useState('newest')
+  const [selectedCard, setSelectedCard] = useState<CollectionItem | null>(null)
+  const [tcgInfo, setTcgInfo] = useState<PokemonTCGCard | null>(null)
+  const [isLoadingTcg, setIsLoadingTcg] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'sets'>('grid')
+  const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     loadCollection()
-    loadAlbums()
   }, [])
 
   const loadCollection = async () => {
@@ -182,6 +384,8 @@ export const UserCollection: React.FC = () => {
       setLoading(true)
       const items = await collectionService.getUserCollection()
       setCollection(items)
+      // Reset image loading states for new collection
+      setImageLoadingStates({})
     } catch (error) {
       console.error('Error loading collection:', error)
     } finally {
@@ -189,305 +393,176 @@ export const UserCollection: React.FC = () => {
     }
   }
 
-  const loadAlbums = async () => {
+  const handleImageLoad = (itemId: string) => {
+    setImageLoadingStates(prev => ({
+      ...prev,
+      [itemId]: true,
+    }))
+  }
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, itemId: string) => {
+    e.currentTarget.src = '/placeholder-card.png'
+    setImageLoadingStates(prev => ({
+      ...prev,
+      [itemId]: true,
+    }))
+  }
+
+  const getStatsFromTCGard = async (card: CollectionItem) => {
+    if (!card.pokemon_cards) return
+
+    setIsLoadingTcg(true)
     try {
-      const userAlbums = await collectionService.getUserAlbums()
-      setAlbums(userAlbums)
+      const result = await cardSearchService.searchCardById(card.pokemon_cards.id)
+      if (result.success && result.cards.length > 0) {
+        setTcgInfo(result.cards[0])
+      } else {
+        setTcgInfo(null)
+      }
     } catch (error) {
-      console.error('Error loading albums:', error)
+      console.error('Error fetching card stats:', error)
+      setTcgInfo(null)
+    } finally {
+      setIsLoadingTcg(false)
     }
   }
 
-  const handleRemoveItem = async (itemId: string) => {
-    if (confirm('Sei sicuro di voler rimuovere questa carta dalla collezione?')) {
-      const success = await collectionService.removeFromCollection(itemId)
-      if (success) {
-        await loadCollection() // Ricarica la collezione
-      }
-    }
+  const handleCardClick = (item: CollectionItem) => {
+    // getStatsFromTCGard(item)
+    // setSelectedCard(item)
+    GetCardColor(item)
   }
 
-  const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      handleRemoveItem(itemId)
-      return
-    }
-
-    const success = await collectionService.updateCollectionQuantity(itemId, newQuantity)
-    if (success) {
-      // Aggiorna solo l'item specifico invece di ricaricare tutto
-      setCollection(prev =>
-        prev.map(item => (item.id === itemId ? { ...item, quantity: newQuantity } : item))
-      )
-    }
-  }
-
-  const handleAddToAlbum = async (cardId: string, albumId: string) => {
-    if (!albumId || albumId === '') return
-
-    const success = await collectionService.addCardToAlbum(cardId, albumId)
-    if (success) {
-      console.log('Card added to album successfully')
-      // Opzionalmente mostra un messaggio di successo
-    }
-  }
-
-  // Filtra e ordina la collezione
-  const filteredCollection = collection
-    .filter(item => {
-      if (!item.pokemon_cards) return false
-
-      const matchesSearch =
-        !searchTerm || item.pokemon_cards.name.toLowerCase().includes(searchTerm.toLowerCase())
-
-      const matchesFilter =
-        filterBy === 'all' ||
-        (filterBy === 'holo' && item.is_holo) ||
-        (filterBy === 'first-edition' && item.is_first_edition) ||
-        (filterBy === 'rare' && item.pokemon_cards.rarity?.toLowerCase().includes('rare'))
-
-      return matchesSearch && matchesFilter
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        case 'oldest':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        case 'name':
-          return (a.pokemon_cards?.name || '').localeCompare(b.pokemon_cards?.name || '')
-        case 'quantity':
-          return b.quantity - a.quantity
-        default:
-          return 0
-      }
-    })
-
-  // Calcola statistiche
-  const stats = {
-    totalCards: collection.reduce((sum, item) => sum + item.quantity, 0),
-    uniqueCards: collection.length,
-    holoCards: collection.filter(item => item.is_holo).length,
-    firstEdition: collection.filter(item => item.is_first_edition).length,
+  const handleCloseDetail = () => {
+    setSelectedCard(null)
+    setTcgInfo(null)
+    setIsLoadingTcg(false)
   }
 
   if (loading) {
     return (
-      <CollectionContainer>
-        <LoadingState>
-          <Package size={48} style={{ marginBottom: theme.spacing[3], opacity: 0.3 }} />
-          <Text>Caricamento collezione...</Text>
-        </LoadingState>
-      </CollectionContainer>
+      <AppContainer>
+        <CollectionContainer>
+          <StateContainer>
+            <StateIcon $loading>
+              <LoadingSpinner />
+            </StateIcon>
+            <StateTitle>Caricamento collezione...</StateTitle>
+            <StateSubtitle>Stiamo recuperando le tue carte Pokemon</StateSubtitle>
+          </StateContainer>
+        </CollectionContainer>
+      </AppContainer>
     )
   }
+  const GetCardColor = (card: CollectionItem) => {
+    console.log(card.pokemon_cards?.rarity)
+    const rarityColors = {
+      Common: 'rgba(156, 163, 175, 1)', // Gray
+      Uncommon: 'rgba(34, 197, 94, 1)', // Green
+      Rare: 'rgba(59, 130, 246, 1)', // Blue
+      'Rare Holo': 'rgba(168, 85, 247, 1)', // Purple
+      'Rare Ultra': 'rgba(236, 72, 153, 1)', // Pink
+      'Rare Secret': 'rgba(251, 191, 36, 1)', // Gold
+      'Rare Rainbow': 'rgba(239, 68, 68, 1)', // Red
+      'Amazing Rare': 'rgba(14, 165, 233, 1)', // Sky blue
+      Promo: 'rgba(245, 158, 11, 1)', // Amber
+      Legendary: 'rgba(147, 51, 234, 1)', // Violet
+      Mythical: 'rgba(219, 39, 119, 1)', // Rose
+    }
 
+    const rarity = card.pokemon_cards?.rarity || 'Common'
+    const glowColor = rarityColors[rarity as keyof typeof rarityColors] || rarityColors['Common']
+    return glowColor
+  }
   return (
-    <CollectionContainer>
-      {/* <CollectionHeader>
-        <div>
-          <Heading size="xl">📦 La Mia Collezione</Heading>
-          <Text style={{ marginTop: theme.spacing[1], color: theme.colors.gray500 }}>
-            Gestisci e visualizza le tue carte Pokemon
-          </Text>
-        </div>
-        <Button onClick={loadCollection}>
-          <Package size={16} />
-          Aggiorna
-        </Button>
-      </CollectionHeader> */}
+    <AppContainer>
+      <CollectionContainer>
+        {/* Header */}
+        <Header>
+          <HeaderContent>
+            <HeaderLeft>
+              <HeaderIcon>
+                <Package size={24} />
+              </HeaderIcon>
+              <HeaderText>
+                <Title>🎮 La Mia Collezione</Title>
+                <Subtitle>{collection.length} carte nella tua collezione</Subtitle>
+              </HeaderText>
+            </HeaderLeft>
 
-      {/* Statistiche */}
-      {/* <CollectionStats>
-        <StatCard>
-          <StatNumber>{stats.totalCards}</StatNumber>
-          <StatLabel>Carte Totali</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatNumber>{stats.uniqueCards}</StatNumber>
-          <StatLabel>Carte Uniche</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatNumber>{stats.holoCards}</StatNumber>
-          <StatLabel>Carte Holo</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatNumber>{stats.firstEdition}</StatNumber>
-          <StatLabel>Prima Edizione</StatLabel>
-        </StatCard>
-      </CollectionStats> */}
+            <ViewControls>
+              <ViewButton $active={viewMode === 'grid'} onClick={() => setViewMode('grid')}>
+                <Grid3X3 size={18} />
+                Griglia
+              </ViewButton>
+              <ViewButton $active={viewMode === 'sets'} onClick={() => setViewMode('sets')}>
+                <Book size={18} />
+                Per Set
+              </ViewButton>
+            </ViewControls>
+          </HeaderContent>
+        </Header>
 
-      {/* Filtri e ricerca */}
-      <FilterBar>
-        <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
-          <Search size={20} style={{ color: theme.colors.gray500 }} />
-          <SearchInput
-            type="text"
-            placeholder="Cerca carte per nome..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </div>
+        {/* Content */}
+        <ContentArea>
+          {viewMode === 'sets' ? (
+            <SetView collection={collection} onCardClick={handleCardClick} />
+          ) : (
+            <>
+              {collection.length === 0 ? (
+                <StateContainer>
+                  <StateIcon>
+                    <Package size={64} />
+                  </StateIcon>
+                  <StateTitle>Collezione vuota</StateTitle>
+                  <StateSubtitle>
+                    Inizia ad aggiungere carte alla tua collezione per vederle qui!
+                  </StateSubtitle>
+                </StateContainer>
+              ) : (
+                <CollectionGrid>
+                  {collection.map(item => (
+                    <CollectionItemCard key={item.id} onClick={() => handleCardClick(item)}>
+                      <SpotlightCard
+                        className="custom-spotlight-card"
+                        spotlightColor={GetCardColor(item)}
+                      >
+                        <CardImageContainer>
+                          {/* Loading spinner mostrato fino a quando l'immagine non è caricata */}
+                          {!imageLoadingStates[item.id] && (
+                            <ImageLoadingContainer>
+                              <ImageLoadingSpinner />
+                            </ImageLoadingContainer>
+                          )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
-          <Filter size={20} style={{ color: theme.colors.gray500 }} />
-          <FilterSelect value={filterBy} onChange={e => setFilterBy(e.target.value)}>
-            <option value="all">Tutte le carte</option>
-            <option value="holo">Solo Holo</option>
-            <option value="first-edition">Prima Edizione</option>
-            <option value="rare">Rare</option>
-          </FilterSelect>
-        </div>
+                          <CardImage
+                            $loaded={imageLoadingStates[item.id] || false}
+                            src={item.pokemon_cards?.images.large}
+                            alt={item.pokemon_cards?.name || 'Pokemon Card'}
+                            onLoad={() => handleImageLoad(item.id)}
+                            onError={e => handleImageError(e, item.id)}
+                          />
+                          {/* <CardOverlay card={item.pokemon_cards} /> */}
+                        </CardImageContainer>
+                      </SpotlightCard>
+                    </CollectionItemCard>
+                  ))}
+                </CollectionGrid>
+              )}
+            </>
+          )}
+        </ContentArea>
+      </CollectionContainer>
 
-        <FilterSelect value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          <option value="newest">Più recenti</option>
-          <option value="oldest">Più vecchie</option>
-          <option value="name">Nome A-Z</option>
-          <option value="quantity">Quantità</option>
-        </FilterSelect>
-      </FilterBar>
-
-      {/* Griglia collezione */}
-      {filteredCollection.length === 0 ? (
-        <EmptyState>
-          <Package size={64} style={{ marginBottom: theme.spacing[4], opacity: 0.3 }} />
-          <Heading size="lg" style={{ marginBottom: theme.spacing[2] }}>
-            {collection.length === 0 ? 'Collezione vuota' : 'Nessun risultato'}
-          </Heading>
-          <Text>
-            {collection.length === 0
-              ? 'Inizia ad aggiungere carte alla tua collezione!'
-              : 'Prova a modificare i filtri di ricerca.'}
-          </Text>
-        </EmptyState>
-      ) : (
-        <CollectionGrid>
-          {filteredCollection.map(item => (
-            <CollectionItemCard key={item.id} onClick={() => console.log(item)}>
-              <div>
-                {/* <ItemImage
-                  src={
-                    setsData.find(set => set.id === item.pokemon_cards?.set_id)?.images?.logo || ''
-                  }
-                  alt=""
-                /> */}
-                {/* <Heading size="md" style={{ marginBottom: theme.spacing[2] }}>
-                  {item.pokemon_cards?.name}
-                </Heading> */}
-              </div>
-              <img src={item.pokemon_cards?.images.large} alt="" />
-              {/* <ItemDetails>
-                <Text style={{ color: theme.colors.gray600, marginBottom: theme.spacing[2] }}>
-                  {item.pokemon_cards?.set_id} • #{item.pokemon_cards?.number}
-                </Text>
-                {item.pokemon_cards?.rarity && (
-                  <Text style={{ fontSize: '0.9rem', color: theme.colors.gray500 }}>
-                    Rarità: {item.pokemon_cards.rarity}
-                  </Text>
-                )}
-                <DetailRow>
-                  <strong>Quantità:</strong>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing[2] }}>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                      style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                    >
-                      -
-                    </Button>
-                    <span>{item.quantity}</span>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                      style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                    >
-                      +
-                    </Button>
-                  </div>
-                </DetailRow>
-                <DetailRow>
-                  <span>Condizione:</span>
-                  <span>{item.condition}</span>
-                </DetailRow>
-                <DetailRow>
-                  <span>Lingua:</span>
-                  <span>{item.language}</span>
-                </DetailRow>
-                {item.is_holo && (
-                  <DetailRow>
-                    <span>✨ Holo</span>
-                    <span>Sì</span>
-                  </DetailRow>
-                )}
-                {item.is_first_edition && (
-                  <DetailRow>
-                    <span>🥇 Prima Edizione</span>
-                    <span>Sì</span>
-                  </DetailRow>
-                )}
-                {item.purchase_price && (
-                  <DetailRow>
-                    <span>Prezzo acquisto:</span>
-                    <span>€{item.purchase_price}</span>
-                  </DetailRow>
-                )}
-              </ItemDetails> */}
-              {/* <ItemActions>
-                <div
-                  style={{ display: 'flex', gap: theme.spacing[2], marginBottom: theme.spacing[2] }}
-                >
-                  <AlbumSelector
-                    onChange={e => handleAddToAlbum(item.card_id, e.target.value)}
-                    defaultValue=""
-                  >
-                    <option value="">Aggiungi ad album...</option>
-                    {albums.map(album => (
-                      <option key={album.id} value={album.id}>
-                        📁 {album.name}
-                      </option>
-                    ))}
-                  </AlbumSelector>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      // TODO: Implementare creazione rapida album
-                      console.log('Create quick album for:', item.pokemon_cards?.name)
-                    }}
-                    style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                  >
-                    <FolderPlus size={14} />
-                  </Button>
-                </div>
-                <div style={{ display: 'flex', gap: theme.spacing[2] }}>
-                  <Button
-                    variant="outline"
-                    style={{ flex: 1, fontSize: '0.9rem' }}
-                    onClick={() => {
-                      // TODO: Implementare modifica dettagli
-                      console.log('Edit item:', item.id)
-                    }}
-                  >
-                    <Edit3 size={14} />
-                    Modifica
-                  </Button>
-                  <Button
-                    variant="outline"
-                    style={{
-                      color: theme.colors.danger,
-                      borderColor: theme.colors.danger,
-                      fontSize: '0.9rem',
-                    }}
-                    onClick={() => handleRemoveItem(item.id)}
-                  >
-                    <Trash2 size={14} />
-                    Rimuovi
-                  </Button>
-                </div>
-              </ItemActions> */}
-            </CollectionItemCard>
-          ))}
-        </CollectionGrid>
-      )}
-    </CollectionContainer>
+      <CardDetails
+        card={selectedCard}
+        tcgInfo={tcgInfo}
+        isLoadingTcg={isLoadingTcg}
+        isOpen={selectedCard !== null}
+        onClose={handleCloseDetail}
+      />
+    </AppContainer>
   )
 }
+
+export default UserCollection

@@ -469,3 +469,6 @@ export const Badge = styled.span<{
     }
   }}
 `
+
+// Export other UI components
+export { default as AddToCollectionButton } from './CollectionButton'

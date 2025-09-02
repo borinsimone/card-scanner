@@ -1,282 +1,385 @@
-import React, { useState } from 'react'
-import { cardSearchService, PokemonTCGCard } from '../../services/card-search'
-import { collectionService } from '../../services/collection'
+import { cardSearchService } from '@/services/card-search'
+import { log } from 'console'
+import React, { useState, useEffect } from 'react'
+import Image from 'next/image'
 import CardResults from './CardResults'
-import pokemonSets from '../../pokemon-sets.json'
-import pokemonNames from '../../pokemon.json'
-const CardForm: React.FC = () => {
-  const [pokemonName, setPokemonName] = useState('')
-  const [setName, setSetName] = useState('')
-  const [cards, setCards] = useState<PokemonTCGCard[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [searchPerformed, setSearchPerformed] = useState(false)
-  const [isAddingToCollection, setIsAddingToCollection] = useState<string | null>(null)
+import PopularCards from './PopularCards'
+import styled from 'styled-components'
+const CardFormContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+`
+const Form = styled.form`
+  display: flex;
 
-  const handleSearch = async (e: React.FormEvent) => {
+  align-items: center;
+  width: 100%;
+`
+function CardForm() {
+  const [cardName, setCardName] = useState('')
+  const [setName, setSetname] = useState('')
+  const [cardNumber, setCardNumber] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Stati per autocomplete
+  const [pokemonSuggestions, setPokemonSuggestions] = useState<string[]>([])
+  const [setSuggestions, setSetSuggestions] = useState<
+    Array<{
+      id: string
+      name: string
+      series: string
+      releaseDate: string
+      images: { logo: string; symbol: string }
+    }>
+  >([])
+  const [showPokemonSuggestions, setShowPokemonSuggestions] = useState(false)
+  const [showSetSuggestions, setShowSetSuggestions] = useState(false)
+  const [cardNumberSuggestions, setCardNumberSuggestions] = useState<string[]>([])
+  const [showCardNumberSuggestions, setShowCardNumberSuggestions] = useState(false)
+  const [totalCardsInSet, setTotalCardsInSet] = useState<number>(0)
+  const [results, setResults] = useState(null)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!pokemonName.trim()) {
-      setError('Inserisci il nome di un Pokemon')
-      return
+    const result = await cardSearchService.smartSearchV2(cardName, setName, cardNumber)
+    if (result && 'cards' in result) {
+      console.log('Found cards:', result.cards)
+      setResults(result)
     }
+    console.log('result:', result)
+  }
 
-    setIsLoading(true)
-    setError(null)
-    setCards([])
-    setSearchPerformed(true)
+  // Gestione suggerimenti Pokemon
+  const handlePokemonNameChange = (value: string) => {
+    setCardName(value)
+    if (value.length > 1) {
+      const allPokemon = cardSearchService.getAllPokemonNames()
+      const filtered = allPokemon
+        .filter(name => name.toLowerCase().includes(value.toLowerCase()))
+        .slice(0, 5)
+      setPokemonSuggestions(filtered)
+      setShowPokemonSuggestions(true)
+    } else {
+      setShowPokemonSuggestions(false)
+    }
+  }
 
-    try {
-      console.log('🔍 Ricerca:', pokemonName, setName ? `nel set ${setName}` : '')
-      const result = await cardSearchService.smartSearch(pokemonName, setName || undefined)
+  // Gestione suggerimenti Set
+  const handleSetNameChange = (value: string) => {
+    setSetname(value)
+    if (value.length > 0) {
+      const suggestions = cardSearchService.getSetSuggestions(value)
+      setSetSuggestions(suggestions)
+      setShowSetSuggestions(true)
+    } else {
+      setShowSetSuggestions(false)
+    }
+  }
 
-      if (result.success && result.cards.length > 0) {
-        setCards(result.cards)
-        console.log('✅ Trovate', result.cards.length, 'carte')
+  // Seleziona suggerimento Pokemon
+  const selectPokemonSuggestion = (pokemon: string) => {
+    setCardName(pokemon)
+    setShowPokemonSuggestions(false)
+  }
+
+  // Seleziona suggerimento Set
+  const selectSetSuggestion = async (set: {
+    id: string
+    name: string
+    series: string
+    releaseDate: string
+    images: { logo: string; symbol: string }
+  }) => {
+    setSetname(set.id)
+    setShowSetSuggestions(false)
+
+    // Carica il numero di carte nel set
+    const totalCards = await getNumberOfCards(set.id)
+    if (typeof totalCards === 'number' && totalCards > 0) {
+      setTotalCardsInSet(totalCards)
+    }
+  }
+  const getNumberOfCards = async (setId: string) => {
+    const setInfo = await cardSearchService.getSetById(setId)
+    const cardNumber = setInfo?.total || 'N/A'
+
+    return cardNumber
+  }
+
+  // Gestione suggerimenti numero carta
+  const handleCardNumberChange = (value: string) => {
+    setCardNumber(value)
+
+    if (value.length > 0 && totalCardsInSet > 0) {
+      // Genera suggerimenti basati sul numero inserito
+      const suggestions: string[] = []
+      const numValue = parseInt(value)
+
+      if (!isNaN(numValue)) {
+        // Suggerisci numeri vicini
+        for (let i = Math.max(1, numValue - 2); i <= Math.min(totalCardsInSet, numValue + 2); i++) {
+          if (i.toString().startsWith(value)) {
+            suggestions.push(i.toString())
+          }
+        }
       } else {
-        setError('Nessuna carta trovata')
-      }
-    } catch (err) {
-      console.error('❌ Errore:', err)
-      setError('Errore durante la ricerca')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleReset = () => {
-    setPokemonName('')
-    setSetName('')
-    setCards([])
-    setError(null)
-    setSearchPerformed(false)
-  }
-
-  // In CardForm.tsx - migliorare handleAddToCollection
-  const handleAddToCollection = async (card: PokemonTCGCard) => {
-    setIsAddingToCollection(card.id)
-
-    try {
-      // Mostra modal per selezione condizione/quantità
-      const result = await showAddToCollectionModal(card)
-
-      if (result.confirmed) {
-        const success = await collectionService.addToCollection(card, {
-          quantity: result.quantity,
-          condition: result.condition,
-          language: result.language,
-        })
-
-        if (success) {
-          showSuccessToast(`${card.name} aggiunta alla collezione!`)
-          // Opzionale: chiedere se aggiungere anche a un album
-          const albumChoice = await showAddToAlbumPrompt()
-          if (albumChoice.albumId) {
-            await collectionService.addCardToAlbum(card.id, albumChoice.albumId)
+        // Se non è un numero, suggerisci i primi numeri che iniziano con il testo
+        for (let i = 1; i <= totalCardsInSet; i++) {
+          if (i.toString().startsWith(value)) {
+            suggestions.push(i.toString())
+            if (suggestions.length >= 5) break // Limita a 5 suggerimenti
           }
         }
       }
-    } catch (error) {
-      showErrorToast(`Errore nell'aggiunta di ${card.name}`)
-    } finally {
-      setIsAddingToCollection(null)
-    }
-  }
-  // ...existing code...
 
-  // Funzioni helper da implementare:
-  const showAddToCollectionModal = async (card: PokemonTCGCard) => {
-    // Per ora, returna valori di default
-    // In futuro potresti creare un modal vero
-    return {
-      confirmed: true,
-      quantity: 1,
-      condition: 'Near Mint',
-      language: 'en',
+      setCardNumberSuggestions(suggestions)
+      setShowCardNumberSuggestions(suggestions.length > 0)
+    } else if (value.length === 0 && totalCardsInSet > 0) {
+      // Se il campo è vuoto ma abbiamo un set, mostra alcuni numeri comuni
+      const commonNumbers = ['1', '2', '3', '4', '5', totalCardsInSet.toString()]
+      setCardNumberSuggestions(commonNumbers.filter(num => parseInt(num) <= totalCardsInSet))
+      setShowCardNumberSuggestions(true)
+    } else {
+      setShowCardNumberSuggestions(false)
     }
   }
 
-  const showSuccessToast = (message: string) => {
-    // Per ora usa alert, in futuro potresti usare una libreria di toast
-    alert(`✅ ${message}`)
-  }
-
-  const showErrorToast = (message: string) => {
-    // Per ora usa alert, in futuro potresti usare una libreria di toast
-    alert(`❌ ${message}`)
-  }
-
-  const showAddToAlbumPrompt = async () => {
-    // Per ora, non aggiunge a nessun album
-    // In futuro potresti mostrare una lista di album
-    return { albumId: null }
-  }
-
-  // ...existing code...
-  const handleAddToWishlist = async (card: PokemonTCGCard) => {
-    try {
-      console.log('⭐ Aggiungendo alla wishlist:', card.name)
-
-      // Il servizio collection è già implementato per gestire le carte TCG
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const success = await collectionService.addToWishlist(card as any, {
-        priority: 3,
-        preferredCondition: 'Near Mint',
-        preferredLanguage: 'en',
-      })
-
-      if (success) {
-        alert(`⭐ ${card.name} aggiunta alla wishlist!`)
-      } else {
-        alert(`❌ Errore nell'aggiunta di ${card.name} alla wishlist`)
-      }
-    } catch (error) {
-      console.error('Errore aggiunta wishlist:', error)
-      alert(`❌ Errore nell'aggiunta di ${card.name} alla wishlist`)
-    }
+  // Seleziona suggerimento numero carta
+  const selectCardNumberSuggestion = (number: string) => {
+    setCardNumber(number)
+    setShowCardNumberSuggestions(false)
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      {/* Header */}
-      <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '30px' }}>
-        🎴 Ricerca Carte Pokemon
-      </h1>
-
-      {/* Form */}
-      <form onSubmit={handleSearch} style={{ marginBottom: '30px' }}>
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+    <CardFormContainer style={{ position: 'relative', margin: '20px auto' }}>
+      <Form onSubmit={handleSubmit}>
+        {/* Input Pokemon con autocomplete */}
+        <div style={{ position: 'relative' }}>
           <input
             type="text"
-            value={pokemonName}
-            onChange={e => setPokemonName(e.target.value)}
-            placeholder="Nome Pokemon (es: Pikachu, Charizard...)"
-            disabled={isLoading}
-            list="pokemon-names-list"
+            placeholder="Search for a Pokemon..."
+            value={cardName}
+            onChange={e => handlePokemonNameChange(e.target.value)}
+            onBlur={() => setTimeout(() => setShowPokemonSuggestions(false), 200)}
             style={{
-              flex: 1,
+              width: '100%',
               padding: '12px',
               fontSize: '16px',
               border: '1px solid #ccc',
-              borderRadius: '6px',
+              borderRadius: '4px',
+              boxSizing: 'border-box',
             }}
           />
-          <datalist id="pokemon-names-list">
-            {pokemonNames
-              .filter(pokemon =>
-                pokemon.name.english.toLowerCase().includes(pokemonName.toLowerCase())
-              )
-              .slice(0, 10) // Limita a 10 suggerimenti per performance
-              .map(pokemon => (
-                <option key={pokemon.id} value={pokemon.name.english} />
+          {showPokemonSuggestions && pokemonSuggestions.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                backgroundColor: 'white',
+                border: '1px solid #ccc',
+                borderTop: 'none',
+                borderRadius: '0 0 4px 4px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                zIndex: 1000,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              }}
+            >
+              {pokemonSuggestions.map((pokemon, index) => (
+                <div
+                  key={index}
+                  onClick={() => selectPokemonSuggestion(pokemon)}
+                  style={{
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    borderBottom: index < pokemonSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
+                >
+                  {pokemon}
+                </div>
               ))}
-          </datalist>
+            </div>
+          )}
+        </div>
 
-          <select
+        {/* Input Set con autocomplete */}
+        <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            placeholder="Set name..."
             value={setName}
-            onChange={e => setSetName(e.target.value)}
-            disabled={isLoading}
+            onChange={e => handleSetNameChange(e.target.value)}
+            onBlur={() => setTimeout(() => setShowSetSuggestions(false), 200)}
             style={{
+              width: '100%',
               padding: '12px',
               fontSize: '16px',
               border: '1px solid #ccc',
-              borderRadius: '6px',
-              minWidth: '200px',
+              borderRadius: '4px',
+              boxSizing: 'border-box',
             }}
-          >
-            <option value="">Tutti i set</option>
-            {pokemonSets
-              .sort(
-                (a: any, b: any) =>
-                  new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime()
-              )
-              .map((set: any) => (
-                <option key={set.id} value={set.id}>
-                  {set.name} - {set.id || 'N/A'}
-                </option>
+          />
+          {showSetSuggestions && setSuggestions.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                backgroundColor: 'white',
+                border: '1px solid #ccc',
+                borderTop: 'none',
+                borderRadius: '0 0 4px 4px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                zIndex: 1000,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              }}
+            >
+              {setSuggestions.map((set, index) => (
+                <div
+                  key={set.id}
+                  onClick={() => {
+                    console.log(set)
+                    selectSetSuggestion(set)
+                  }}
+                  style={{
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    borderBottom: index < setSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
+                >
+                  <Image
+                    src={set.images.symbol}
+                    alt={set.name}
+                    width={20}
+                    height={20}
+                    style={{
+                      objectFit: 'contain',
+                    }}
+                    onError={e => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold' }}>{set.name}</div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      {set.series} • {set.id} • {new Date(set.releaseDate).getFullYear()}
+                    </div>
+                  </div>
+                </div>
               ))}
-          </select>
-
-          <button
-            type="submit"
-            disabled={isLoading || !pokemonName.trim()}
-            style={{
-              padding: '12px 24px',
-              fontSize: '16px',
-              backgroundColor: isLoading ? '#ccc' : '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isLoading ? 'Cercando...' : 'Cerca'}
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={isLoading}
-            style={{
-              padding: '12px 20px',
-              fontSize: '16px',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Reset
-          </button>
+            </div>
+          )}
         </div>
-      </form>
 
-      {/* Errore */}
-      {error && (
+        {/* Input Card Number con autocomplete */}
+        <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            placeholder={
+              totalCardsInSet > 0 ? `Card number (1-${totalCardsInSet})...` : 'Card number...'
+            }
+            value={cardNumber}
+            onChange={e => handleCardNumberChange(e.target.value)}
+            onBlur={() => setTimeout(() => setShowCardNumberSuggestions(false), 200)}
+            style={{
+              width: '100%',
+              padding: '12px',
+              fontSize: '16px',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              boxSizing: 'border-box',
+            }}
+          />
+          {showCardNumberSuggestions && cardNumberSuggestions.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                backgroundColor: 'white',
+                border: '1px solid #ccc',
+                borderTop: 'none',
+                borderRadius: '0 0 4px 4px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                zIndex: 1000,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              }}
+            >
+              {cardNumberSuggestions.map((number, index) => (
+                <div
+                  key={number}
+                  onClick={() => selectCardNumberSuggestion(number)}
+                  style={{
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    borderBottom:
+                      index < cardNumberSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f5f5f5')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
+                >
+                  <span>#{number}</span>
+                  {number === totalCardsInSet.toString() && (
+                    <span style={{ fontSize: '12px', color: '#666' }}>Last card</span>
+                  )}
+                  {number === '1' && (
+                    <span style={{ fontSize: '12px', color: '#666' }}>First card</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          style={{
+            padding: '12px 24px',
+            fontSize: '16px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#0056b3')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#007bff')}
+        >
+          Search
+        </button>
+      </Form>
+      {results ? <CardResults results={results} /> : null}
+      {isLoading && (
         <div
           style={{
-            padding: '15px',
-            backgroundColor: '#f8d7da',
-            color: '#721c24',
-            border: '1px solid #f5c6cb',
-            borderRadius: '6px',
-            marginBottom: '20px',
-            textAlign: 'center',
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
           }}
         >
-          ⚠️ {error}
+          caricando..
         </div>
       )}
-
-      {/* Risultati */}
-      <CardResults
-        cards={cards}
-        isLoading={isLoading}
-        searchPerformed={searchPerformed}
-        searchSource="api"
-        onAddToCollection={handleAddToCollection}
-        onAddToWishlist={handleAddToWishlist}
-      />
-
-      {/* Info */}
-      <div
-        style={{
-          marginTop: '40px',
-          padding: '16px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '6px',
-          fontSize: '14px',
-          color: '#666',
-          textAlign: 'center',
-        }}
-      >
-        <strong>� Nuove Funzionalità:</strong>
-        <br />
-        📚 Aggiungi alla Collezione | ⭐ Aggiungi alla Wishlist | 💰 Prezzi TCG in tempo reale
-        <br />
-        <strong>�📡 API Pokemon TCG</strong> - Ricerca diretta nel database ufficiale
-      </div>
-    </div>
+    </CardFormContainer>
   )
 }
 

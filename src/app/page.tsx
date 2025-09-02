@@ -215,15 +215,6 @@ export default function Home() {
 
         {activeTab === 'search' ? (
           <>
-            <Header>
-              <Heading size="2xl" style={{ marginBottom: theme.spacing[3] }}>
-                🔍 Cerca le tue carte Pokemon
-              </Heading>
-              <Text size="lg" style={{ opacity: 0.9 }}>
-                Trova carte Pokemon e gestisci la tua collezione
-              </Text>
-            </Header>
-
             <CardForm />
 
             {/* Selezione carte multiple */}

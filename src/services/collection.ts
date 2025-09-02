@@ -25,6 +25,7 @@ export interface CollectionItem {
   notes?: string
   created_at: string
   pokemon_cards?: PokemonCard
+  set_id?: string // Aggiunto per facilitare l'accesso al set_id
 }
 
 export interface Album {

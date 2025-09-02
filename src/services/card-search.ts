@@ -1,5 +1,6 @@
 import axios from 'axios'
 import pokemonData from '../pokemon.json'
+import pokemonSets from '../pokemon-sets.json'
 
 export interface PokemonTCGCard {
   id: string
@@ -312,12 +313,181 @@ export class CardSearchService {
       processingTime: allCardsResult.processingTime + wildcardResult.processingTime,
     }
   }
+  async smartSearchV2(
+    cardName?: string,
+    setId?: string,
+    cardNumber?: string
+  ): Promise<SearchResult> {
+    console.log('🧠 [SMART SEARCH V2] Avvio ricerca intelligente V2')
 
+    if ((!cardName || cardName.trim().length === 0) && setId && cardNumber) {
+      console.log('🧠 [SMART SEARCH V2] Ricerca tramite ID carta')
+      const cardId = `${setId}-${cardNumber}`
+      return this.searchCardById(cardId)
+    }
+
+    if (cardName && setId) {
+      console.log('🧠 [SMART SEARCH V2] Ricerca tramite nome e set')
+      const tcgQuery = `name:"${cardName}" set.id:${setId}`
+      return this.searchPokemonTCG(tcgQuery)
+    }
+    if (cardName && cardNumber) {
+      alert('non ancora')
+    }
+    if (!cardName && setId && !cardNumber) {
+      //return all cards in set
+      return this.searchPokemonTCG(`set.id:${setId}`)
+    }
+    if (cardName && !setId && !cardNumber) {
+      console.log('🧠 [SMART SEARCH V2] Ricerca tramite solo nome')
+      const tcgQuery = `name:"${cardName}"`
+      return this.searchPokemonTCG(tcgQuery)
+    }
+    // if (cardName) {
+    //   console.log('🧠 [SMART SEARCH V2] Ricerca tramite solo nome')
+    //   const tcgQuery = `name:"${cardName}"`
+    //   const result = await this.searchPokemonTCG(tcgQuery)
+    //   if (result.success && result.cards.length > 0) {
+    //     return result
+    //   }
+    // }
+
+    // if (setId && cardNumber) {
+    //   console.log('🧠 [SMART SEARCH V2] Ricerca tramite set e numero')
+    //   const cardId = `${setId}-${cardNumber}`
+    //   const result = await this.searchCardById(cardId)
+    //   if (result.success && result.cards.length > 0) {
+    //     return result
+    //   }
+    // }
+
+    // Nessun risultato trovato - ritorna errore
+    console.error('❌ [SMART SEARCH V2] Nessun risultato trovato con tutti i metodi')
+    return {
+      success: false,
+      cards: [],
+      totalCount: 0,
+      source: 'pokemon-tcg-api',
+      query: cardName || `${setId}-${cardNumber}`,
+      processingTime: Date.now(),
+    }
+
+    // Default fallback to original smart search
+    return this.smartSearch(cardName, setId, cardNumber)
+  }
+  /**
+   * Ricerca una carta specifica tramite il suo ID
+   */
+  async searchCardById(cardId: string): Promise<SearchResult> {
+    const startTime = Date.now()
+    console.log('🎯 [CARD BY ID] Ricerca carta tramite ID:', cardId)
+
+    try {
+      const url = `/api/pokemon-tcg/${cardId}`
+      console.log('🔗 [CARD BY ID] API Route URL:', url)
+
+      const response = await axios.get(url)
+
+      const processingTime = Date.now() - startTime
+      console.log('✅ [CARD BY ID] Carta trovata in', processingTime + 'ms')
+      console.log('📊 [CARD BY ID] Dettagli carta:', response.data)
+
+      // L'API restituisce una singola carta, la mettiamo in un array per compatibilità
+      const card = response.data?.data
+      const cards = card ? [card] : []
+
+      return {
+        success: !!card,
+        cards,
+        totalCount: cards.length,
+        source: 'pokemon-tcg-api',
+        query: `id:${cardId}`,
+        processingTime,
+      }
+    } catch (error) {
+      const processingTime = Date.now() - startTime
+      console.error('❌ [CARD BY ID] Errore ricerca carta:', error)
+
+      return {
+        success: false,
+        cards: [],
+        totalCount: 0,
+        source: 'pokemon-tcg-api',
+        query: `id:${cardId}`,
+        processingTime,
+      }
+    }
+  }
   /**
    * Ottieni tutti i nomi Pokemon disponibili per autocomplete
    */
   getAllPokemonNames(): string[] {
     return pokemonData.map(pokemon => pokemon.name.english).sort()
+  }
+
+  /**
+   * Ottieni tutti i set Pokemon disponibili per autocomplete
+   */
+  getAllPokemonSets(): Array<{ id: string; name: string; series: string; releaseDate: string }> {
+    return pokemonSets
+      .map(set => ({
+        id: set.id,
+        name: set.name,
+        series: set.series,
+        releaseDate: set.releaseDate,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  /**
+   * Ottieni suggerimenti per set basati su una query di ricerca
+   */
+  getSetSuggestions(query: string): Array<{
+    id: string
+    name: string
+    series: string
+    releaseDate: string
+    images: { logo: string; symbol: string }
+  }> {
+    if (!query || query.trim().length === 0) {
+      return pokemonSets
+        .map(set => ({
+          id: set.id,
+          name: set.name,
+          series: set.series,
+          releaseDate: set.releaseDate,
+          images: set.images,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .slice(0, 10)
+    }
+
+    const queryLower = query.toLowerCase()
+
+    return pokemonSets
+      .filter(
+        set =>
+          set.name.toLowerCase().includes(queryLower) ||
+          set.id.toLowerCase().includes(queryLower) ||
+          set.series.toLowerCase().includes(queryLower) ||
+          (set.ptcgoCode && set.ptcgoCode.toLowerCase().includes(queryLower))
+      )
+      .map(set => ({
+        id: set.id,
+        name: set.name,
+        series: set.series,
+        releaseDate: set.releaseDate,
+        images: set.images,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 10) // Limita a 10 risultati
+  }
+
+  /**
+   * Ottieni informazioni dettagliate su un set specifico
+   */
+  getSetById(setId: string): (typeof pokemonSets)[0] | null {
+    return pokemonSets.find(set => set.id === setId) || null
   }
 
   /**
@@ -362,15 +532,21 @@ export class CardSearchService {
     totalPokemon: number
     availableTypes: string[]
     generationsAvailable: number
+    totalSets: number
+    availableSeries: string[]
   } {
     const types = [...new Set(pokemonData.flatMap(p => p.type))]
     const maxId = Math.max(...pokemonData.map(p => p.id))
     const generations = Math.ceil(maxId / 151) // Approssimativamente
 
+    const series = [...new Set(pokemonSets.map(set => set.series))]
+
     return {
       totalPokemon: pokemonData.length,
       availableTypes: types,
       generationsAvailable: generations,
+      totalSets: pokemonSets.length,
+      availableSeries: series.sort(),
     }
   }
 }
